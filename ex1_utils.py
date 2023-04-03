@@ -12,16 +12,17 @@ from typing import List
 import cv2
 
 import numpy as np
+
 LOAD_GRAY_SCALE = 1
 LOAD_RGB = 2
 
 
-def myID() -> np.int:
+def myID() -> np.int_:
     """
     Return my ID (not the friend's ID I copied from)
     :return: int
     """
-    return 123456789
+    return 324249150
 
 
 def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
@@ -34,14 +35,29 @@ def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
 
     img = cv2.imread(filename)
 
+    """
+    If the image is grayscale, the shape will have only 2 dimensions.
+    If the image is RGB, the shape will have 3 dimensions and the last dimension will have a size of 3 
+    (representing the red, green, and blue channels).
+    """
+    isGray = len(img.shape) == 2
+    isRGB = len(img.shape) == 3 and img.shape[2] == 3
+
+    if isGray and representation != LOAD_GRAY_SCALE:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    elif isRGB and representation != LOAD_RGB:
+        img = 9
+        # TODO
+
+
     # convert to grayscale if needed
     if representation == LOAD_GRAY_SCALE:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     elif representation == LOAD_RGB:
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2RGB)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     # normalize pixel intensities to [0, 1]
-    img = img.astype(np.float) / 255.0
+    img = img.astype(np.float_) / 255.0
 
     # return the image as a numpy array
     return img
