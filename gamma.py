@@ -11,7 +11,7 @@
 from ex1_utils import LOAD_GRAY_SCALE
 
 
-def gammaDisplay(img_path: str, rep: int):
+def gammaDisplay(img_path: str, rep: int): #TODO
     """
     GUI for gamma correction
     :param img_path: Path to the image
