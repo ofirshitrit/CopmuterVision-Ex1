@@ -74,7 +74,7 @@ def main():
     # quantDemo(img_path, LOAD_RGB)
     #
     # # Gamma
-    gammaDisplay(img_path, LOAD_GRAY_SCALE)
+    # gammaDisplay(img_path, LOAD_GRAY_SCALE)
     #
 
 if __name__ == '__main__':
