@@ -45,15 +45,14 @@ In this assigment I will going to do this fucntions:
    * quantizeImage():
         * param:  
             1. imgOrig -> np.ndarray 
-            2.  nQuant -> int -> amount of intensities to quantize.![Screenshot from 2023-04-17 10-08-10](https://user-images.githubusercontent.com/100192040/232410526-a26a878a-93d1-47c3-8471-0557d01c627e.png)
-
+            2.  nQuant -> int -> amount of intensities to quantize.
             3. nIter -> int -> amount of iterations to perform.
         * return: tuple-
              1.Images_list -> List[np.ndarray] -> list of the images after each iteration 
              2.MSE_list -> List[float] -> list of the MSE after each iteration
 ![Uploading Screenshot from 2023-04-17 10-08-10.png…]()
 ![Screenshot from 2023-04-17 10-08-31](https://user-images.githubusercontent.com/100192040/232410543-fb2676e4-d5b1-44fe-86ea-d48b4bed2ac6.png)
-
+![Screenshot from 2023-04-17 10-08-10](https://user-images.githubusercontent.com/100192040/232410526-a26a878a-93d1-47c3-8471-0557d01c627e.png)
 
 
 # Gamma correction
