@@ -26,6 +26,8 @@ In this assigment I will going to do this fucntions:
     * return: imgRGB as np.ndarray
 
  ![Screenshot from 2023-04-17 08-43-24](https://user-images.githubusercontent.com/100192040/232402037-bb735355-3207-43aa-86ac-a1cf9824c8e4.png)
+ ![Screenshot from 2023-04-17 10-28-21](https://user-images.githubusercontent.com/100192040/232415260-44ddfd78-1368-4274-bec8-4b394d6de46a.png)
+
 
 
 # Histogram Equalization
