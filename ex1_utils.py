@@ -14,6 +14,7 @@ import cv2
 
 import numpy as np
 from matplotlib import pyplot as plt
+from sklearn.metrics import mean_squared_error
 
 LOAD_GRAY_SCALE = 1
 LOAD_RGB = 2
@@ -34,25 +35,18 @@ def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
     :param representation: GRAY_SCALE or RGB
     :return: The image object
     """
+    # Load the image using OpenCV
     img = cv2.imread(filename)
-    if img is None:
-        sys.exit("Could not read the image.")
 
-    # If the image is grayscale, the shape will have only 2 dimensions.
-    imgIsGray = len(img.shape) == 2
-
-    # If the image is RGB, the shape will have 3 dimensions and the last dimension will have a size of 3
-    imgIsRGB = len(img.shape) == 3 and img.shape[2] == 3
-
-    if imgIsGray and representation == LOAD_RGB:
+    # Convert the image to grayscale or RGB
+    if representation == 1:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    elif imgIsRGB and representation == LOAD_GRAY_SCALE:
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    elif representation == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    # normalize pixel intensities to [0, 1]
+    # Normalize the pixel intensities to the range [0,1]
     img = img.astype(np.float_) / 255.0
 
-    # return the image as a numpy array
     return img
 
 
@@ -63,13 +57,23 @@ def imDisplay(filename: str, representation: int):
     :param representation: GRAY_SCALE or RGB
     :return: None
     """
+    # Read the image using imReadAndConvert function
     img = imReadAndConvert(filename, representation)
 
-    # Display the image
-    cv2.imshow('Image', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    pass
+    # Create a new figure window
+    plt.figure()
+
+    # Display the image using plt.imshow function
+    if representation == 1:
+        plt.imshow(img, cmap='gray')
+    elif representation == 2:
+        plt.imshow(img)
+    else:
+        print("Invalid representation value! Please enter 1 for grayscale or 2 for RGB.")
+        return
+
+    # Show the plot
+    plt.show()
 
 
 def transformRGB2YIQ(imgRGB: np.ndarray) -> np.ndarray:
@@ -93,23 +97,14 @@ def transformYIQ2RGB(imgYIQ: np.ndarray) -> np.ndarray:  # TODO
     :return: A RGB in image color space
     """
 
-    conversion_mat = np.array([[0.299, 0.587, 0.114],
+    yiq_from_rgb = np.array([[0.299, 0.587, 0.114],
                                [0.596, -0.275, -0.321],
                                [0.212, -0.523, 0.311]])
 
-    # get dimensions of input YIQ image
-    height, width, _ = imgYIQ.shape
 
-    # reshape input YIQ image to (height*width)x3 matrix
-    imYIQ = imgYIQ.reshape((-1, 3))
-
-    # convert YIQ to RGB using matrix multiplication
-    imRGB = np.dot(imYIQ, conversion_mat.T)
-
-    # reshape output RGB image to height x width x 3
-    imRGB = imRGB.reshape((height, width, 3))
-
-    return imRGB
+    OrigShape = imgYIQ.shape
+    yiq2rgb = np.dot(imgYIQ.reshape(-1, 3), np.linalg.inv(yiq_from_rgb).transpose()).reshape(OrigShape)
+    return yiq2rgb
     pass
 
 
@@ -147,75 +142,72 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
     return imEqualized, histOrg, histEq
 
 
+def case_RGB(imgOrig: np.ndarray) -> (bool, np.ndarray, np.ndarray):
+    isRGB = imgOrig.ndim == 3 and imgOrig.shape[-1] == 3
+    if isRGB:
+        imgYIQ = transformRGB2YIQ(imgOrig)
+        imgOrig = imgYIQ[..., 0]
+        return True, imgYIQ, imgOrig
+    return False, None, imgOrig
 
 
+def back_to_rgb(yiq_img: np.ndarray, y_to_update: np.ndarray) -> np.ndarray:
+    yiq_img[:, :, 0] = y_to_update
+    return transformYIQ2RGB(yiq_img)
 
-def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarray], List[float]):  # TODO
+
+def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarray], List[float]):
     """
-        Quantized an image in to **nQuant** colors
+        Quantized an image in to *nQuant* colors
         :param imOrig: The original image (RGB or Gray scale)
         :param nQuant: Number of colors to quantize the image to
         :param nIter: Number of optimization loops
         :return: (List[qImage_i],List[error_i])
     """
-    # Check if the image is RGB or grayscale
-    isRGB = len(imOrig.shape) == 3 and imOrig.shape[2] == 3
+    isRGB, yiq_img, imOrig = case_RGB(imOrig)
 
-    # Convert to YIQ if image is RGB
-    if isRGB:
-        yiq = cv2.cvtColor(imOrig, cv2.COLOR_RGB2YIQ)
-        img = yiq[:, :, 0]
-    else:
-        img = imOrig
+    if np.amax(imOrig) <= 1:  # picture is normalized
+        imOrig = (imOrig * 255).astype('uint8')
 
-    # Calculate initial segment borders
-    segment_size = 256 // nQuant
-    segment_borders = np.arange(0, 256, segment_size)
-    segment_borders[-1] = 255
+    histOrg, bin_edges = np.histogram(imOrig, 256, [0, 255])
 
-    # Iterate nIter times
-    img_lst = []
-    err_lst = []
+    z = np.linspace(0, 255, nQuant + 1, dtype=int)  # boundaries
+    q = np.zeros(nQuant)
+
+    qImage_list = []
+    error_list = []
+
     for i in range(nIter):
-        # Calculate segment values
-        segment_values = []
-        for j in range(nQuant):
-            segment = img[(segment_borders[j] <= img) & (img < segment_borders[j + 1])]
-            segment_values.append(np.mean(segment))
+        new_img = np.zeros(imOrig.shape)
 
-        # Calculate new segment borders
-        new_segment_borders = np.zeros(nQuant + 1)
-        new_segment_borders[0] = 0
-        new_segment_borders[-1] = 255
-        for j in range(1, nQuant):
-            new_segment_borders[j] = (segment_values[j - 1] + segment_values[j]) // 2
+        for cell in range(len(q)):
+            # Determine the range of pixel intensities for this cell
+            left = z[cell]
+            right = z[cell + 1]
+            cell_range = np.arange(left, right)
 
-        # Quantize the image
-        q_img = np.interp(img, new_segment_borders, segment_values)
+            # Compute the average intensity for this cell, weighted by the pixel counts in its range
+            hist_cell = histOrg[left:right]
+            weights = hist_cell / np.sum(hist_cell)
+            q[cell] = np.sum(weights * cell_range)
 
-        # Calculate MSE error
-        mse = np.mean(np.square(img - q_img))
+            # Assign the average intensity to all pixels within the cell's range
+            condition = np.logical_and(imOrig >= left, imOrig < right)
+            new_img[condition] = q[cell]
 
-        # Update segment borders
-        segment_borders = new_segment_borders
+        MSE = mean_squared_error(imOrig / 255, new_img / 255)
+        error_list.append(MSE)
 
-        # Append results to lists
-        img_lst.append(q_img)
-        err_lst.append(mse)
+        if isRGB:
+            new_img = back_to_rgb(yiq_img, new_img / 255)
 
-    # Convert back to RGB if image was RGB
-    if isRGB:
-        yiq[:, :, 0] = img_lst[-1]
-        img_lst[-1] = cv2.cvtColor(yiq, cv2.COLOR_YIQ2RGB)
+        qImage_list.append(new_img)
+        z[1:-1] = (q[:-1] + q[1:]) / 2
 
-    # Plot error as function of iteration number
-    plt.plot(err_lst)
-    plt.title("MSE Error vs. Iteration")
-    plt.xlabel("Iteration")
-    plt.ylabel("MSE Error")
-    plt.show()
+        if len(error_list) >= 2 and abs(
+                error_list[-1] - error_list[-2]) <= sys.float_info.epsilon:  # check if converged
+            break
 
-    # Return results
-    return img_lst, err_lst
+    return qImage_list, error_list
 
-    pass
+
